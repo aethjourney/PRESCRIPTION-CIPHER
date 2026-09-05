@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PharmaChamps — Prescription Cipher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-void: #0d0e1c;
+    --panel: #16213e;
+    --panel-edge: #0a0f24;
+    --mint: #06d6a0;
+    --mint-dim: #04a37a;
+    --amber: #ffd166;
+    --alert: #ef476f;
+    --text: #eef2f7;
+    --text-dim: #8b93b5;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; height:100%;
+    background: var(--bg-void);
+    font-family:'Space Mono', monospace;
+    color: var(--text);
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh;
+  }
+  .console{
+    position:relative; width:100%; max-width:560px; margin:24px;
+    background: var(--panel);
+    border:4px solid var(--panel-edge);
+    box-shadow: 0 0 0 4px #2a3357, 0 20px 60px rgba(0,0,0,0.6);
+    overflow:hidden;
+  }
+  .console::after{
+    content:""; position:absolute; inset:0;
+    background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px);
+    pointer-events:none; z-index:5;
+  }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:var(--panel-edge); border-bottom:3px solid #2a3357; }
+  .brand{ font-family:'Press Start 2P', monospace; font-size:10px; color:var(--mint); letter-spacing:1px; }
+  .semester-tag{ font-family:'Press Start 2P', monospace; font-size:8px; color:var(--amber); background:rgba(255,209,102,0.08); border:1px solid var(--amber); padding:4px 6px; }
+
+  .meter-wrap{ padding:12px 14px 6px; border-bottom:3px solid #2a3357; }
+  .meter-label{ font-size:10px; color:var(--text-dim); display:flex; justify-content:space-between; margin-bottom:6px; }
+  .meter-label b{ color:var(--mint); }
+  .meter{ display:flex; gap:3px; height:14px; }
+  .meter-seg{ flex:1; background:#1f2745; border:2px solid var(--panel-edge); transition: background .25s ease; }
+  .meter-seg.filled{ background: var(--mint); }
+
+  .stage{ padding:18px 16px 20px; min-height:420px; display:flex; flex-direction:column; }
+
+  .screen-title{ font-family:'Press Start 2P', monospace; font-size:13px; margin:0 0 4px; line-height:1.6; }
+  .screen-sub{ font-size:11px; color:var(--text-dim); margin:0 0 14px; line-height:1.6; }
+
+  .resep-card{
+    background:#0f1730; border:2px solid #2a3357; padding:16px; margin-bottom:16px; position:relative;
+    font-family:'Press Start 2P', monospace;
+  }
+  .resep-card::before{
+    content:"RESEP DOKTER"; position:absolute; top:-11px; left:10px;
+    font-family:'Press Start 2P', monospace; font-size:8px; background:var(--mint); color:#06251c; padding:3px 6px;
+  }
+  .resep-line{ font-size:13px; color:var(--amber); line-height:2; letter-spacing:0.5px; }
+  .resep-hint{ font-family:'Space Mono', monospace; font-size:10.5px; color:var(--text-dim); margin-top:8px; line-height:1.6; }
+
+  .seq-title{ font-family:'Press Start 2P', monospace; font-size:9px; color:var(--text-dim); margin-bottom:8px; }
+  .seq-row{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; min-height:40px; align-items:flex-start; }
+  .seq-slot{
+    border:2px dashed #2a3357; padding:8px 10px; font-size:11.5px; color:var(--text-dim);
+    display:flex; align-items:center; min-height:20px;
+  }
+  .seq-slot.filled{ border-style:solid; border-color:var(--mint); background:rgba(6,214,160,0.07); color:var(--text); }
+  .seq-slot.placeholder{ opacity:0.5; }
+
+  .grid-title{ font-family:'Press Start 2P', monospace; font-size:9px; color:var(--text-dim); margin-bottom:8px; }
+  .item-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+  .item-btn{
+    text-align:left; background:#1f2745; border:2px solid #34406e; color:var(--text);
+    font-family:'Space Mono', monospace; font-size:11.5px; padding:10px; cursor:pointer; line-height:1.4;
+  }
+  .item-btn:hover:not(:disabled){ background:#26305a; border-color:var(--mint-dim); }
+  .item-btn:disabled{ opacity:0.3; cursor:default; }
+  .item-btn.flash-wrong{ background:rgba(239,71,111,0.25); border-color:var(--alert); }
+  .item-btn.flash-correct{ background:rgba(6,214,160,0.25); border-color:var(--mint); }
+
+  .tap-feedback{ font-size:10.5px; color:var(--text-dim); min-height:16px; margin-bottom:10px; }
+  .tap-feedback.wrong{ color:var(--alert); }
+  .tap-feedback.correct{ color:var(--mint); }
+
+  .feedback{ margin-top:auto; font-size:12px; line-height:1.7; padding:12px; border-left:3px solid var(--mint); background:rgba(6,214,160,0.06); display:none; }
+  .feedback.show{ display:block; }
+  .feedback .verdict{ font-family:'Press Start 2P', monospace; font-size:10px; display:block; margin-bottom:8px; color:var(--mint); }
+
+  .next-btn{ margin-top:14px; align-self:flex-end; font-family:'Press Start 2P', monospace; font-size:10px; background:var(--amber); color:#3a2a00; border:none; padding:10px 16px; cursor:pointer; display:none; }
+  .next-btn.show{ display:inline-block; }
+
+  .end-screen{ display:none; text-align:center; padding:20px 6px; }
+  .end-screen.show{ display:block; }
+  .end-title{ font-family:'Press Start 2P', monospace; font-size:14px; color:var(--mint); margin-bottom:14px; line-height:1.6; }
+  .end-score{ font-size:34px; color:var(--amber); font-weight:700; margin:10px 0; }
+  .end-desc{ font-size:12px; color:var(--text-dim); line-height:1.7; margin-bottom:20px; }
+  .restart-btn{ font-family:'Press Start 2P', monospace; font-size:10px; background:var(--mint); color:#06251c; border:none; padding:12px 18px; cursor:pointer; }
+
+  .play-wrap.hidden, .end-holder.hidden{ display:none; }
+
+  footer.note{ font-size:10px; color:var(--text-dim); text-align:center; padding:10px; border-top:3px solid #2a3357; background:var(--panel-edge); }
+</style>
+</head>
+<body>
+
+<div class="console">
+  <div class="topbar">
+    <div class="brand">PHARMACHAMPS</div>
+    <div class="semester-tag">PRESCRIPTION CIPHER</div>
+  </div>
+
+  <div class="meter-wrap">
+    <div class="meter-label"><span>POIN BACA RESEP</span><span><b id="pointNow">0</b> / <span id="pointTarget">280</span></span></div>
+    <div class="meter" id="meter"></div>
+  </div>
+
+  <div class="stage">
+    <div class="play-wrap" id="playWrap">
+      <h2 class="screen-title" id="roundNumber">RESEP 1 / 5</h2>
+      <p class="screen-sub">Susun arti singkatan resep menjadi instruksi lengkap untuk pasien</p>
+
+      <div class="resep-card">
+        <div class="resep-line" id="resepLine"></div>
+        <div class="resep-hint" id="resepHint"></div>
+      </div>
+
+      <div class="seq-title">INSTRUKSI UNTUK PASIEN (tap potongan kalimat sesuai urutan)</div>
+      <div class="seq-row" id="seqRow"></div>
+
+      <div class="grid-title">POTONGAN KALIMAT</div>
+      <div class="item-grid" id="itemGrid"></div>
+      <div class="tap-feedback" id="tapFeedback"></div>
+
+      <div class="feedback" id="feedback">
+        <span class="verdict" id="verdict"></span>
+        <span id="explanation"></span>
+      </div>
+
+      <button class="next-btn" id="nextBtn">LANJUT →</button>
+    </div>
+
+    <div class="end-holder hidden" id="endHolder">
+      <div class="end-screen show">
+        <div class="end-title">SESI BACA RESEP<br>SELESAI</div>
+        <div class="end-score" id="finalScore">0</div>
+        <div class="end-desc" id="finalDesc"></div>
+        <button class="restart-btn" id="restartBtn">ULANGI PROTOTYPE</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">prototype mini-game · v0.1 · tanpa batas waktu</footer>
+</div>
+
+<script>
+const TARGET_POINTS = 280;
+
+const rounds = [
+  {
+    name: "Resep Tablet Biasa",
+    resep: "R/ Amoxicillin 500mg No. XV<br>S 3 dd 1 tab pc",
+    hint: "S = signa (aturan pakai) · dd = de die (per hari) · pc = post coenam",
+    steps: ["Diminum", "3 kali sehari", "1 tablet", "sesudah makan"],
+    distractors: ["2 kali sehari", "sebelum makan", "1 sendok teh", "sekali sehari"],
+    explanation: "S 3 dd 1 tab pc = Signa (aturan pakai) 3 dd (3 kali sehari, 'de die') 1 tab (1 tablet) pc (post coenam / sesudah makan)."
+  },
+  {
+    name: "Resep Sirup Anak",
+    resep: "R/ Parasetamol Syr<br>S 2 dd 1 cth ac",
+    hint: "cth = cochlear theae (sendok teh) · ac = ante coenam",
+    steps: ["Diminum", "2 kali sehari", "1 sendok teh", "sebelum makan"],
+    distractors: ["3 kali sehari", "sesudah makan", "1 tablet", "menjelang tidur"],
+    explanation: "S 2 dd 1 cth ac = 2 kali sehari, 1 sendok teh (cochlear theae), ac (ante coenam / sebelum makan)."
+  },
+  {
+    name: "Resep Obat Tidur",
+    resep: "R/ Diazepam 2mg No. X<br>S 1 dd 1 tab hs",
+    hint: "hs = hora somni (menjelang tidur)",
+    steps: ["Diminum", "1 kali sehari", "1 tablet", "menjelang tidur"],
+    distractors: ["3 kali sehari", "sesudah makan", "bila perlu", "2 tablet"],
+    explanation: "S 1 dd 1 tab hs = 1 kali sehari, 1 tablet, hs (hora somni / menjelang tidur) — umum untuk obat penenang/tidur."
+  },
+  {
+    name: "Resep Bila Perlu",
+    resep: "R/ Asam Mefenamat 500mg<br>S prn 1 tab (max 3dd)",
+    hint: "prn = pro re nata (bila perlu)",
+    steps: ["Diminum", "bila perlu", "1 tablet", "maksimal 3 kali sehari"],
+    distractors: ["rutin tiap pagi", "sebelum tidur", "2 tablet", "hanya 1 kali"],
+    explanation: "S prn 1 tab (max 3dd) = diminum bila perlu (pro re nata), 1 tablet, dengan batas maksimal 3 kali sehari — biasa untuk obat pereda nyeri."
+  },
+  {
+    name: "Resep Obat Tetes Mata",
+    resep: "R/ Chloramphenicol Eye Drop<br>S 3 dd gtt II ODS",
+    hint: "gtt = guttae (tetes) · ODS = oculo dextro et sinistro (kedua mata)",
+    steps: ["Teteskan", "3 kali sehari", "2 tetes", "pada kedua mata"],
+    distractors: ["pada mata kanan saja", "1 tetes", "2 kali sehari", "pada telinga"],
+    explanation: "S 3 dd gtt II ODS = 3 kali sehari, gtt II (2 tetes, 'guttae'), ODS (oculo dextro et sinistro / kedua mata)."
+  }
+];
+
+let currentRound = 0;
+let totalScore = 0;
+let expectedIndex = 0;
+let wrongTaps = 0;
+let usedIds = new Set();
+let roundEnded = false;
+
+const meterEl = document.getElementById('meter');
+const SEGMENTS = 20;
+for(let i=0;i<SEGMENTS;i++){
+  const seg = document.createElement('div'); seg.className='meter-seg'; meterEl.appendChild(seg);
+}
+function updateMeter(){
+  document.getElementById('pointNow').textContent = totalScore;
+  const filled = Math.min(SEGMENTS, Math.round((totalScore/TARGET_POINTS)*SEGMENTS));
+  [...meterEl.children].forEach((seg,i)=> seg.classList.toggle('filled', i<filled));
+}
+
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function renderRound(){
+  roundEnded=false;
+  expectedIndex=0; wrongTaps=0; usedIds=new Set();
+  const r = rounds[currentRound];
+  document.getElementById('roundNumber').textContent = `RESEP ${currentRound+1} / ${rounds.length}`;
+  document.getElementById('resepLine').innerHTML = r.resep;
+  document.getElementById('resepHint').textContent = r.hint;
+
+  const seqRow = document.getElementById('seqRow');
+  seqRow.innerHTML='';
+  r.steps.forEach((_,i)=>{
+    const slot = document.createElement('div');
+    slot.className='seq-slot placeholder';
+    slot.id = 'slot-'+i;
+    slot.textContent = '...';
+    seqRow.appendChild(slot);
+  });
+
+  const items = shuffle([
+    ...r.steps.map((text,idx)=>({id:'s'+idx, text, correctOrder:idx})),
+    ...r.distractors.map((text,idx)=>({id:'d'+idx, text, correctOrder:-1}))
+  ]);
+
+  const grid = document.getElementById('itemGrid');
+  grid.innerHTML='';
+  items.forEach(item=>{
+    const btn = document.createElement('button');
+    btn.className='item-btn';
+    btn.textContent = item.text;
+    btn.dataset.id = item.id;
+    btn.addEventListener('click', ()=> handleTap(btn, item, r));
+    grid.appendChild(btn);
+  });
+
+  document.getElementById('tapFeedback').textContent='';
+  document.getElementById('tapFeedback').className='tap-feedback';
+  const fb = document.getElementById('feedback');
+  fb.classList.remove('show');
+  document.getElementById('nextBtn').classList.remove('show');
+}
+
+function handleTap(btn, item, r){
+  if(roundEnded || usedIds.has(item.id)) return;
+  const tapFb = document.getElementById('tapFeedback');
+
+  if(item.correctOrder === expectedIndex){
+    usedIds.add(item.id);
+    btn.disabled = true;
+    btn.classList.add('flash-correct');
+    const slot = document.getElementById('slot-'+expectedIndex);
+    slot.classList.remove('placeholder');
+    slot.classList.add('filled');
+    slot.textContent = item.text;
+    tapFb.textContent = 'Tepat! Lanjut potongan berikutnya.';
+    tapFb.className = 'tap-feedback correct';
+    expectedIndex++;
+    if(expectedIndex >= r.steps.length){
+      endRound();
+    }
+  } else {
+    wrongTaps++;
+    btn.classList.add('flash-wrong');
+    setTimeout(()=> btn.classList.remove('flash-wrong'), 350);
+    tapFb.textContent = item.correctOrder === -1
+      ? 'Bukan bagian dari arti singkatan ini.'
+      : 'Belum urutannya — cek lagi struktur instruksinya.';
+    tapFb.className = 'tap-feedback wrong';
+  }
+}
+
+function endRound(){
+  roundEnded = true;
+  document.querySelectorAll('.item-btn').forEach(b=> b.disabled=true);
+
+  const r = rounds[currentRound];
+  const base = r.steps.length * 20;
+  const penalty = wrongTaps * 5;
+  const points = Math.max(0, base - penalty);
+  totalScore += points;
+  updateMeter();
+
+  const fb = document.getElementById('feedback');
+  fb.classList.add('show');
+  document.getElementById('verdict').textContent = `RESEP TERBACA! +${points} POIN`;
+  document.getElementById('explanation').textContent = r.explanation;
+  document.getElementById('nextBtn').classList.add('show');
+}
+
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  currentRound++;
+  if(currentRound >= rounds.length){ showEnd(); } else { renderRound(); }
+});
+
+function showEnd(){
+  document.getElementById('playWrap').classList.add('hidden');
+  document.getElementById('endHolder').classList.remove('hidden');
+  document.getElementById('finalScore').textContent = totalScore;
+  const reached = totalScore >= TARGET_POINTS;
+  document.getElementById('finalDesc').textContent = reached
+    ? 'Target poin tercapai! Kamu sudah lumayan lancar baca singkatan resep dokter.'
+    : `Belum mencapai target ${TARGET_POINTS} poin. Pelajari lagi singkatan Latin umum di resep.`;
+}
+
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  currentRound=0; totalScore=0;
+  document.getElementById('playWrap').classList.remove('hidden');
+  document.getElementById('endHolder').classList.add('hidden');
+  updateMeter();
+  renderRound();
+});
+
+updateMeter();
+renderRound();
+</script>
+
+</body>
+</html>
